@@ -1,22 +1,39 @@
-name: notify
+name: Notify Discord on PR Merge
 
 on:
   pull_request:
-    branches:
-      - master
     types: [closed]
 
 jobs:
-  build:
-    name: Build
+  notify-discord:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@master
-      - name: send custom message with args
-        uses: appleboy/discord-action@master
-        with:
-          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
-          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#48f442"
-          username: "The Lab Bot"
-          message: "🎉 New update on master !\n\n**${{ github.event.pull_request.title }}**\n\n${{ github.event.pull_request.body }}."
+    - name: Check if PR is merged
+      id: check_merged
+      run: echo "::set-output name=merged::${{ github.event.pull_request.merged }}"
+
+    - name: Notify Discord
+      if: steps.check_merged.outputs.merged == 'true'
+      run: |
+        curl -X POST -H "Content-Type: application/json" -d '{
+          "content": "Pull Request **#${{ github.event.pull_request.number }}** has been merged! :tada:",
+          "embeds": [
+            {
+              "title": "${{ github.event.pull_request.title }}",
+              "url": "${{ github.event.pull_request.html_url }}",
+              "description": "${{ github.event.pull_request.body }}",
+              "color": 3066993,
+              "fields": [
+                {
+                  "name": "Merged By",
+                  "value": "${{ github.event.pull_request.merged_by.login }}"
+                },
+                {
+                  "name": "State",
+                  "value": "Merged"
+                }
+              ]
+            }
+          ]
+        }' ${{ secrets.DISCORD_WEBHOOK }}
